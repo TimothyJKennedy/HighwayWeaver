@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Highway Traffic Weaver</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #222;
+            font-family: Arial, sans-serif;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #highway {
+            position: absolute;
+            width: 360px;
+            height: 100%;
+            background-color: #333;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .lane-line {
+            position: absolute;
+            width: 10px;
+            height: 50px;
+            background-color: #FFF;
+        }
+        #player {
+            position: absolute;
+            width: 40px;
+            height: 70px;
+            background-color: #F00;
+            border-radius: 5px;
+            bottom: 100px;
+            z-index: 10;
+            transition: left 0.1s ease-out;
+        }
+        .car {
+            position: absolute;
+            width: 40px;
+            height: 60px;
+            background-color: #00F;
+            border-radius: 5px;
+            z-index: 5;
+        }
+        #score-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 24px;
+            z-index: 20;
+        }
+        #rush-hour-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            font-size: 24px;
+            z-index: 20;
+            background-color: rgba(255, 0, 0, 0.7);
+            padding: 5px 10px;
+            border-radius: 5px;
+            display: none;
+        }
+        .overlay-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 36px;
+            z-index: 30;
+        }
+        .btn {
+            margin: 10px 0;
+            padding: 10px 20px;
+            font-size: 24px;
+            background-color: #F00;
+            border: none;
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .btn:hover {
+            background-color: #D00;
+        }
+        #start-menu {
+            text-align: center;
+        }
+        #game-title {
+            font-size: 48px;
+            margin-bottom: 30px;
+            color: #F00;
+            text-shadow: 0 0 10px rgba(255, 0, 0, 0.7);
+        }
+        #highscores-screen table {
+            margin-top: 20px;
+            border-collapse: collapse;
+            width: 60%;
+            max-width: 500px;
+        }
+        #highscores-screen th, #highscores-screen td {
+            padding: 10px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        #highscores-screen th {
+            font-size: 24px;
+            color: #F00;
+        }
+        #highscores-screen td {
+            font-size: 20px;
+        }
+        #username-input {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+        }
+        #username-input input {
+            padding: 10px;
+            font-size: 20px;
+            margin: 10px 0;
+            width: 250px;
+            border-radius: 5px;
+            border: none;
+        }
+        #back-btn {
+            margin-top: 30px;
+            background-color: #555;
+        }
+        #back-btn:hover {
+            background-color: #444;
+        }
+        #game-instructions {
+            font-size: 18px;
+            margin: 20px 0;
+            max-width: 600px;
+            line-height: 1.5;
+            color: #CCC;
+            text-align: center;
+        }
+        @keyframes rushHourPulse {
+            0% { background-color: rgba(255, 0, 0, 0.7); }
+            50% { background-color: rgba(255, 0, 0, 0.9); }
+            100% { background-color: rgba(255, 0, 0, 0.7); }
+        }
+        .rush-hour-active {
+            animation: rushHourPulse 1s infinite;
+        }
+        .rush-hour-highway {
+            background-color: #444 !important;
+            transition: background-color 1s;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="highway">
+            <div id="player"></div>
+        </div>
+        <div id="score-container">Score: <span id="score">0</span></div>
+        <div id="rush-hour-indicator">RUSH HOUR! <span id="rush-hour-timer">30</span></div>
+        
+        <!-- Start Menu -->
+        <div id="start-menu" class="overlay-screen">
+            <div id="game-title">Highway Traffic Weaver</div>
+            <div id="game-instructions">
+                Use arrow keys or click to change lanes. Avoid other cars and survive as long as possible!<br>
+                Watch out for Rush Hour periods with increased traffic!
+            </div>
+            <button id="start-btn" class="btn">Start Game</button>
+            <button id="highscores-btn" class="btn">High Scores</button>
+        </div>
+        
+        <!-- Game Over Screen -->
+        <div id="game-over" class="overlay-screen" style="display: none;">
+            <div>Game Over!</div>
+            <div>Final Score: <span id="final-score">0</span></div>
+            <div id="username-input">
+                <label for="username">Enter your name:</label>
+                <input type="text" id="username" maxlength="15" placeholder="Your name">
+                <button id="save-score-btn" class="btn">Save Score</button>
+            </div>
+            <button id="restart-btn" class="btn">Restart</button>
+            <button id="menu-btn" class="btn">Main Menu</button>
+        </div>
+        
+        <!-- Highscores Screen -->
+        <div id="highscores-screen" class="overlay-screen" style="display: none;">
+            <div id="game-title">High Scores</div>
+            <table id="highscores-table">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Name</th>
+                        <th>Score</th>
+                    </tr>
+                </thead>
+                <tbody id="highscores-body">
+                    <!-- High scores will be inserted here -->
+                </tbody>
+            </table>
+            <button id="back-btn" class="btn">Back to Menu</button>
+        </div>
+    </div>
+
+    <script>
+        // Game configuration
+        const config = {
+            laneCount: 3,
+            laneWidth: 120,
+            playerSpeed: 5,
+            initialCarSpeed: 2,
+            carSpeedIncrease: 0.0002,
+            carSpawnRate: 1500,
+            carSpawnRateMin: 500,
+            carSpawnRateDecrease: 0.2,
+            lineSpacing: 100,
+            lineSpeed: 5,
+            scorePerSecond: 1,
+            maxHighScores: 10,
+            
+            // Rush Hour configuration
+            rushHourDuration: 30, // seconds
+            rushHourInterval: [30, 60], // min and max seconds between rush hours
+            rushHourCarSpeedMultiplier: 1.5,
+            rushHourSpawnRateMultiplier: 0.3, // lower number = more cars
+            rushHourScoreMultiplier: 2
+        };
+
+        // Game state
+        let gameRunning = false;
+        let score = 0;
+        let playerLane = 1;
+        let cars = [];
+        let laneLines = [];
+        let lastCarSpawn = 0;
+        let currentCarSpeed = config.initialCarSpeed;
+        let currentCarSpawnRate = config.carSpawnRate;
+        let gameLoopId = null;
+        let lineCreationInterval = null;
+        let scoreUpdateInterval = null;
+        
+        // Rush Hour state
+        let isRushHour = false;
+        let rushHourTimer = 0;
+        let rushHourInterval = null;
+        let rushHourTimerId = null;
+        let nextRushHourTime = 0;
+        let normalCarSpeed = config.initialCarSpeed;
+        let normalCarSpawnRate = config.carSpawnRate;
+        
+        // Initialize highScores in memory instead of localStorage
+        let highScores = [
+            { name: "Player1", score: 120 },
+            { name: "Player2", score: 95 },
+            { name: "Player3", score: 82 }
+        ];
+
+        // DOM elements
+        const highway = document.getElementById('highway');
+        const player = document.getElementById('player');
+        const scoreElement = document.getElementById('score');
+        const finalScoreElement = document.getElementById('final-score');
+        const gameOverScreen = document.getElementById('game-over');
+        const startMenu = document.getElementById('start-menu');
+        const highscoresScreen = document.getElementById('highscores-screen');
+        const highscoresTable = document.getElementById('highscores-body');
+        const usernameInput = document.getElementById('username');
+        const rushHourIndicator = document.getElementById('rush-hour-indicator');
+        const rushHourTimerElement = document.getElementById('rush-hour-timer');
+        
+        // Buttons
+        const startBtn = document.getElementById('start-btn');
+        const highscoresBtn = document.getElementById('highscores-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const menuBtn = document.getElementById('menu-btn');
+        const backBtn = document.getElementById('back-btn');
+        const saveScoreBtn = document.getElementById('save-score-btn');
+
+        // Add a new high score
+        function addHighScore(name, playerScore) {
+            highScores.push({ name, score: playerScore });
+            highScores.sort((a, b) => b.score - a.score);
+            
+            // Keep only the top scores
+            if (highScores.length > config.maxHighScores) {
+                highScores = highScores.slice(0, config.maxHighScores);
+            }
+            
+            displayHighScores();
+        }
+
+        // Display high scores in the table
+        function displayHighScores() {
+            highscoresTable.innerHTML = '';
+            
+            if (highScores.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = '<td colspan="3">No high scores yet!</td>';
+                highscoresTable.appendChild(row);
+                return;
+            }
+            
+            highScores.forEach((entry, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${entry.name}</td>
+                    <td>${entry.score}</td>
+                `;
+                highscoresTable.appendChild(row);
+            });
+        }
+
+        // Initialize the game
+        function initGame() {
+            // Reset state
+            gameRunning = true;
+            score = 0;
+            playerLane = 1;
+            cars = [];
+            laneLines = [];
+            lastCarSpawn = 0;
+            currentCarSpeed = config.initialCarSpeed;
+            normalCarSpeed = config.initialCarSpeed;
+            currentCarSpawnRate = config.carSpawnRate;
+            normalCarSpawnRate = config.carSpawnRate;
+            isRushHour = false;
+            rushHourTimer = 0;
+            
+            // Schedule first rush hour
+            scheduleNextRushHour();
+            
+            // Clear existing elements
+            const existingCars = document.querySelectorAll('.car');
+            existingCars.forEach(car => car.remove());
+            
+            const existingLines = document.querySelectorAll('.lane-line');
+            existingLines.forEach(line => line.remove());
+            
+            // Update UI
+            scoreElement.textContent = '0';
+            gameOverScreen.style.display = 'none';
+            startMenu.style.display = 'none';
+            rushHourIndicator.style.display = 'none';
+            highway.classList.remove('rush-hour-highway');
+            
+            // Position player
+            positionPlayer();
+            
+            // Start game loops
+            gameLoopId = requestAnimationFrame(gameLoop);
+            lineCreationInterval = setInterval(createLaneLine, config.lineSpacing / config.lineSpeed * 10);
+            scoreUpdateInterval = setInterval(updateScore, 1000);
+        }
+
+        // Schedule the next rush hour
+        function scheduleNextRushHour() {
+            if (rushHourInterval) {
+                clearTimeout(rushHourInterval);
+            }
+            
+            const minTime = config.rushHourInterval[0] * 1000;
+            const maxTime = config.rushHourInterval[1] * 1000;
+            const nextRushHourDelay = Math.floor(Math.random() * (maxTime - minTime + 1)) + minTime;
+            
+            nextRushHourTime = Math.floor(nextRushHourDelay / 1000);
+            
+            rushHourInterval = setTimeout(() => {
+                startRushHour();
+            }, nextRushHourDelay);
+        }
+
+        // Start a rush hour
+        function startRushHour() {
+            if (!gameRunning) return;
+            
+            isRushHour = true;
+            rushHourTimer = config.rushHourDuration;
+            
+            // Store normal speeds
+            normalCarSpeed = currentCarSpeed;
+            normalCarSpawnRate = currentCarSpawnRate;
+            
+            // Apply rush hour difficulty
+            currentCarSpeed = normalCarSpeed * config.rushHourCarSpeedMultiplier;
+            currentCarSpawnRate = normalCarSpawnRate * config.rushHourSpawnRateMultiplier;
+            
+            // Update UI
+            rushHourIndicator.style.display = 'block';
+            rushHourTimerElement.textContent = rushHourTimer;
+            rushHourIndicator.classList.add('rush-hour-active');
+            highway.classList.add('rush-hour-highway');
+            
+            // Start timer countdown
+            rushHourTimerId = setInterval(() => {
+                rushHourTimer--;
+                rushHourTimerElement.textContent = rushHourTimer;
+                
+                if (rushHourTimer <= 0) {
+                    endRushHour();
+                }
+            }, 1000);
+        }
+
+        // End a rush hour
+        function endRushHour() {
+            isRushHour = false;
+            clearInterval(rushHourTimerId);
+            
+            // Restore normal difficulty
+            currentCarSpeed = normalCarSpeed;
+            currentCarSpawnRate = normalCarSpawnRate;
+            
+            // Update UI
+            rushHourIndicator.style.display = 'none';
+            rushHourIndicator.classList.remove('rush-hour-active');
+            highway.classList.remove('rush-hour-highway');
+            
+            // Schedule next rush hour
+            scheduleNextRushHour();
+        }
+
+        // Position player based on current lane
+        function positionPlayer() {
+            const laneCenter = (playerLane - 0.5) * config.laneWidth;
+            player.style.left = (laneCenter - 20) + 'px'; // 20 is half the player width
+        }
+
+        // Create a new lane line
+        function createLaneLine() {
+            if (!gameRunning) return;
+            
+            for (let i = 1; i < config.laneCount; i++) {
+                const line = document.createElement('div');
+                line.className = 'lane-line';
+                
+                line.style.left = (i * config.laneWidth - 5) + 'px'; // 5 is half the line width
+                line.style.top = '-50px';
+                
+                highway.appendChild(line);
+                laneLines.push(line);
+            }
+        }
+
+        // Create a new car
+        function createCar() {
+            if (!gameRunning) return;
+            
+            const car = document.createElement('div');
+            car.className = 'car';
+            
+            // Randomly select a lane
+            const lane = Math.floor(Math.random() * config.laneCount);
+            const laneCenter = (lane + 0.5) * config.laneWidth;
+            car.style.left = (laneCenter - 20) + 'px'; // 20 is half the car width
+            car.style.top = '-60px';
+            
+            // Randomly select a color
+            const colors = ['#00F', '#0F0', '#FF0', '#0FF', '#F0F'];
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            car.style.backgroundColor = randomColor;
+            
+            highway.appendChild(car);
+            cars.push({
+                element: car,
+                lane: lane
+            });
+        }
+
+        // Update score
+        function updateScore() {
+            if (!gameRunning) return;
+            
+            // Apply score multiplier during rush hour
+            const scoreToAdd = isRushHour ? 
+                config.scorePerSecond * config.rushHourScoreMultiplier : 
+                config.scorePerSecond;
+            
+            score += scoreToAdd;
+            scoreElement.textContent = Math.floor(score);
+        }
+
+        // Check collision between player and a car
+        function checkCollision(car) {
+            const playerRect = player.getBoundingClientRect();
+            const carRect = car.element.getBoundingClientRect();
+            
+            return !(
+                playerRect.bottom < carRect.top ||
+                playerRect.top > carRect.bottom ||
+                playerRect.right < carRect.left ||
+                playerRect.left > carRect.right
+            );
+        }
+
+        // End the game
+        function endGame() {
+            gameRunning = false;
+            finalScoreElement.textContent = Math.floor(score);
+            gameOverScreen.style.display = 'flex';
+            
+            // Clear intervals
+            clearInterval(lineCreationInterval);
+            clearInterval(scoreUpdateInterval);
+            clearInterval(rushHourTimerId);
+            clearTimeout(rushHourInterval);
+            
+            // Focus on username input
+            setTimeout(() => {
+                usernameInput.focus();
+            }, 500);
+        }
+
+        // Show main menu
+        function showMainMenu() {
+            gameOverScreen.style.display = 'none';
+            highscoresScreen.style.display = 'none';
+            startMenu.style.display = 'flex';
+        }
+
+        // Show high scores
+        function showHighScores() {
+            startMenu.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            highscoresScreen.style.display = 'flex';
+            displayHighScores();
+        }
+
+        // Main game loop
+        function gameLoop(timestamp) {
+            if (!gameRunning) return;
+            
+            // Spawn cars
+            if (timestamp - lastCarSpawn > currentCarSpawnRate) {
+                createCar();
+                lastCarSpawn = timestamp;
+                
+                // Decrease spawn rate over time (faster spawning)
+                if (!isRushHour) {
+                    normalCarSpawnRate = Math.max(
+                        config.carSpawnRateMin,
+                        normalCarSpawnRate - config.carSpawnRateDecrease
+                    );
+                    currentCarSpawnRate = normalCarSpawnRate;
+                }
+            }
+            
+            // Move lane lines
+            for (let i = 0; i < laneLines.length; i++) {
+                const line = laneLines[i];
+                const topValue = parseInt(line.style.top || '-50px');
+                
+                if (topValue > window.innerHeight) {
+                    // Remove off-screen lines
+                    line.remove();
+                    laneLines.splice(i, 1);
+                    i--;
+                } else {
+                    line.style.top = (topValue + config.lineSpeed) + 'px';
+                }
+            }
+            
+            // Move cars and check collisions
+            for (let i = 0; i < cars.length; i++) {
+                const car = cars[i];
+                const topValue = parseInt(car.element.style.top || '-60px');
+                
+                if (topValue > window.innerHeight) {
+                    // Remove off-screen cars
+                    car.element.remove();
+                    cars.splice(i, 1);
+                    i--;
+                } else {
+                    // Increase car speed over time (only in normal mode)
+                    if (!isRushHour) {
+                        normalCarSpeed += config.carSpeedIncrease;
+                        currentCarSpeed = normalCarSpeed;
+                    }
+                    car.element.style.top = (topValue + currentCarSpeed) + 'px';
+                    
+                    // Check for collision
+                    if (checkCollision(car)) {
+                        endGame();
+                        return;
+                    }
+                }
+            }
+            
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+
+        // Event listeners
+        highway.addEventListener('click', (e) => {
+            if (!gameRunning) return;
+            
+            const rect = highway.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            
+            const clickedLane = Math.floor(clickX / config.laneWidth) + 1;
+            if (clickedLane >= 1 && clickedLane <= config.laneCount) {
+                playerLane = clickedLane;
+                positionPlayer();
+            }
+        });
+
+        // Keyboard controls for moving
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning) return;
+            
+            if (e.key === 'ArrowLeft' && playerLane > 1) {
+                playerLane--;
+                positionPlayer();
+            } else if (e.key === 'ArrowRight' && playerLane < config.laneCount) {
+                playerLane++;
+                positionPlayer();
+            }
+        });
+
+        // Button event listeners
+        startBtn.addEventListener('click', initGame);
+        highscoresBtn.addEventListener('click', showHighScores);
+        restartBtn.addEventListener('click', initGame);
+        menuBtn.addEventListener('click', showMainMenu);
+        backBtn.addEventListener('click', showMainMenu);
+        
+        saveScoreBtn.addEventListener('click', () => {
+            const username = usernameInput.value.trim() || 'Anonymous';
+            addHighScore(username, Math.floor(score));
+            showHighScores();
+        });
+
+        // Initialize high scores display
+        displayHighScores();
+    </script>
+</body>
+</html>
